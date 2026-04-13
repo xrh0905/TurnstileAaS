@@ -1,23 +1,35 @@
+"$schema" = "./node_modules/wrangler/config-schema.json"
 name = "turnstile-aas"
 main = "src/index.ts"
-compatibility_date = "2025-10-01"
+compatibility_date = "2026-04-01"
 
 [durable_objects]
 bindings = [
   { name = "SESSIONS_DO", class_name = "SessionsDurableObject" }
 ]
 
+[observability]
+[observability.logs]
+enabled = true
+invocation_logs = true
+[observability.traces]
+enabled = true
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["SessionsDurableObject"]
+
+#[[routes]]
+#pattern = "verify.example.com"
+#custom_domain = true
 
 [vars]
 BASE_PUBLIC_URL = "http://localhost:8787"
 USE_TURNSTILE_TEST_KEYS = "false"
 DEFAULT_TIMEOUT_SECONDS = "300"
-MIN_TIMEOUT_SECONDS = "60"
+MIN_TIMEOUT_SECONDS = "30"
 MAX_TIMEOUT_SECONDS = "1800"
-CLEANUP_DELAY_SECONDS = "600"
+CLEANUP_DELAY_SECONDS = "300"
 CLIENT_SERVER_TOKEN_MAP = "{}"
 
 # Set secret values with:
