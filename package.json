@@ -1,0 +1,21 @@
+{
+  "name": "turnstile-aas",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:prod": "wrangler deploy --env production",
+    "typecheck": "tsc --noEmit",
+    "local:start": "npx wrangler dev",
+    "local:issue": "powershell -ExecutionPolicy Bypass -File ./scripts/issue-request.ps1",
+    "local:feedback": "powershell -ExecutionPolicy Bypass -File ./scripts/request-feedback.ps1",
+    "test:local": "powershell -ExecutionPolicy Bypass -File ./scripts/local-test.ps1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260405.0",
+    "typescript": "^5.8.3",
+    "wrangler": "^4.82.1"
+  }
+}

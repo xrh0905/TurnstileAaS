@@ -1,0 +1,6 @@
+# Copy this file to .dev.vars for local wrangler dev secrets.
+# These values are loaded only in local development.
+# Do not commit .dev.vars.
+
+TURNSTILE_SITE_KEY=your_local_turnstile_site_key
+TURNSTILE_SECRET_KEY=your_local_turnstile_secret_key
