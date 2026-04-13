@@ -183,15 +183,13 @@ export function renderHomePage(locale: SupportedLocale = "en"): string {
       out.textContent = i18n.home.creatingSession;
       try {
         const timeoutSeconds = 120;
-        const expectedExpireAt = new Date(Date.now() + timeoutSeconds * 1000).toLocaleString(locale === "zh-cn" ? "zh-CN" : "en-US", { hour12: false });
-
         const payload = {
           client_id: "frontpage-demo",
           timeout_seconds: timeoutSeconds,
           branding: {
             color: "#1C5FAA",
             title: i18n.home.demoBrandingTitle,
-            prompt: i18n.home.demoPromptPrefixHtml + "<p><b>" + i18n.home.demoPromptExpireLabel + ": " + expectedExpireAt + "</b></p>",
+            prompt: i18n.home.demoPromptPrefixHtml + "<p><b>" + i18n.home.demoPromptExpireLabel + ": " + timeoutSeconds + "sec</b></p>",
             button_text: i18n.home.demoButtonText,
             success_title: i18n.home.demoSuccessTitle,
             success_message: i18n.home.demoSuccessMessage,
