@@ -1,5 +1,6 @@
 import { BrandingConfig } from "../types";
 import { escapeHtml } from "../utils";
+import { getI18n } from "./i18n";
 import { renderHtmlDocument, resolveBrandingBasics } from "./page-shell";
 
 export function renderTurnstilePage(args: {
@@ -8,14 +9,17 @@ export function renderTurnstilePage(args: {
   verifyEndpoint: string;
   branding: BrandingConfig;
   expiresAt: string;
+  locale?: "zh-cn" | "en";
 }): string {
+  const locale = args.locale ?? "en";
+  const i18n = getI18n(locale);
   const basics = resolveBrandingBasics(args.branding);
   const successColor = args.branding.success_color ?? basics.color;
-  const promptHtml = args.branding.prompt ?? escapeHtml("Please complete verification to continue.");
-  const buttonText = escapeHtml(args.branding.button_text ?? "验证");
-  const successTitle = escapeHtml(args.branding.success_title ?? "验证成功");
-  const successMessage = escapeHtml(args.branding.success_message ?? "验证已完成");
-  const backText = escapeHtml(args.branding.back_text ?? "返回");
+  const promptHtml = args.branding.prompt ?? escapeHtml(i18n.turnstile.fallbackPrompt);
+  const buttonText = escapeHtml(args.branding.button_text ?? i18n.turnstile.buttonText);
+  const successTitle = escapeHtml(args.branding.success_title ?? i18n.turnstile.successTitle);
+  const successMessage = escapeHtml(args.branding.success_message ?? i18n.turnstile.successMessage);
+  const backText = escapeHtml(args.branding.back_text ?? i18n.turnstile.backText);
   const backDelay = typeof args.branding.back_delay_seconds === "number" ? args.branding.back_delay_seconds : 3;
 
   const style = `
@@ -224,7 +228,7 @@ export function renderTurnstilePage(args: {
         return;
       }
       let left = backDelaySeconds;
-      backMeta.textContent = "Returning in " + left + "s";
+      backMeta.textContent = ${JSON.stringify(i18n.turnstile.returningIn)} + " " + left + "s";
       backTimer = setInterval(() => {
         left -= 1;
         if (left <= 0) {
@@ -232,7 +236,7 @@ export function renderTurnstilePage(args: {
           backOrExit();
           return;
         }
-        backMeta.textContent = "Returning in " + left + "s";
+        backMeta.textContent = ${JSON.stringify(i18n.turnstile.returningIn)} + " " + left + "s";
       }, 1000);
     }
 
@@ -240,14 +244,14 @@ export function renderTurnstilePage(args: {
       const expireTs = Date.parse(expiresAt);
       if (!Number.isFinite(expireTs)) {
         if (expireMeta) {
-          expireMeta.textContent = "过期时间解析失败";
+          expireMeta.textContent = ${JSON.stringify(i18n.turnstile.invalidExpiryTime)};
         }
         return;
       }
 
-      const expireText = new Date(expireTs).toLocaleString("zh-CN", { hour12: false });
+      const expireText = new Date(expireTs).toLocaleString(${JSON.stringify(locale === "zh-cn" ? "zh-CN" : "en-US")}, { hour12: false });
       if (expireMeta) {
-        expireMeta.textContent = "会话过期时间：" + expireText;
+        expireMeta.textContent = ${JSON.stringify(i18n.turnstile.expiresAt)} + expireText;
       }
 
       expireTimer = setInterval(() => {
@@ -261,13 +265,14 @@ export function renderTurnstilePage(args: {
         if (leftMs <= 0) {
           clearInterval(expireTimer);
           expireTimer = null;
-          window.location.href = window.location.pathname;
+          window.location.href = window.location.pathname + window.location.search;
           return;
         }
 
         if (expireMeta) {
           const leftSec = Math.max(1, Math.floor(leftMs / 1000));
-          expireMeta.textContent = "会话过期时间：" + expireText + "（剩余 " + leftSec + "s）";
+          expireMeta.textContent = ${JSON.stringify(i18n.turnstile.expiresAt)} + expireText
+            + (${JSON.stringify(locale === "zh-cn")} ? "（" + ${JSON.stringify(i18n.turnstile.timeLeft)} + " " + leftSec + "s）" : " (" + leftSec + "s " + ${JSON.stringify(i18n.turnstile.timeLeft)} + ")");
         }
       }, 1000);
     }
@@ -282,12 +287,12 @@ export function renderTurnstilePage(args: {
     verifyBtn.addEventListener("click", async () => {
       const token = window.turnstile?.getResponse?.();
       if (!token) {
-        statusText.textContent = "请先完成 Turnstile 挑战。";
+        statusText.textContent = ${JSON.stringify(i18n.turnstile.completeChallengeFirst)};
         return;
       }
 
       verifyBtn.disabled = true;
-      statusText.textContent = "验证中...";
+      statusText.textContent = ${JSON.stringify(i18n.turnstile.verifying)};
 
       try {
         const response = await fetch(verifyEndpoint.replace(":id", browserSessionId), {
@@ -298,7 +303,7 @@ export function renderTurnstilePage(args: {
 
         if (!response.ok) {
           const failed = await response.json().catch(() => ({}));
-          statusText.textContent = failed.error || "验证未通过，请刷新后重试。";
+          statusText.textContent = failed.error || ${JSON.stringify(i18n.turnstile.verifyFailedRetry)};
           verifyBtn.disabled = false;
           return;
         }
@@ -317,7 +322,7 @@ export function renderTurnstilePage(args: {
 
         showSuccessFullPage();
       } catch {
-        statusText.textContent = "网络异常，请刷新后重试。";
+        statusText.textContent = ${JSON.stringify(i18n.turnstile.networkErrorRetry)};
         verifyBtn.disabled = false;
       }
     });
@@ -329,6 +334,7 @@ export function renderTurnstilePage(args: {
     style,
     body,
     script,
-    headExtra: '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>'
+    headExtra: '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>',
+    htmlLang: locale === "zh-cn" ? "zh-CN" : "en"
   });
 }

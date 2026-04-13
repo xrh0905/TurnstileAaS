@@ -8,13 +8,14 @@ export function renderHtmlDocument(args: {
   body: string;
   script?: string;
   headExtra?: string;
+  htmlLang?: string;
 }): string {
   const faviconTag = args.favicon
     ? `<link rel="icon" href="${escapeHtml(args.favicon)}" />`
     : "";
 
   return `<!doctype html>
-<html lang="en">
+<html lang="${escapeHtml(args.htmlLang ?? "en")}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />

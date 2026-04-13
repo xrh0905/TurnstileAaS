@@ -1,8 +1,11 @@
+import { getI18n, SupportedLocale } from "./i18n";
 import { renderHtmlDocument } from "./page-shell";
 
 export const HOMEPAGE_GITHUB_URL = "https://github.com/xrh0905/TurnstileAaS";
 
-export function renderHomePage(): string {
+export function renderHomePage(locale: SupportedLocale = "en"): string {
+  const i18n = getI18n(locale);
+
   const style = `
     :root {
       --brand: #1C5FAA;
@@ -95,14 +98,14 @@ export function renderHomePage(): string {
 
   const body = `
   <main class="card">
-    <h1>Turnstile 验证网关</h1>
-    <p>点击下方按钮会创建演示会话（<b>frontpage-demo</b>），并在新标签页直接打开 public_url。</p>
+    <h1>${i18n.home.heading}</h1>
+    <p>${i18n.home.introHtml}</p>
     <div class="actions">
-      <button id="demoBtn">运行演示</button>
+      <button id="demoBtn">${i18n.home.demoButton}</button>
       <a class="btn secondary" href="${HOMEPAGE_GITHUB_URL}" target="_blank" rel="noreferrer">GitHub</a>
     </div>
-    <div class="label">演示输出</div>
-    <div class="output" id="outputBox">就绪。</div>
+    <div class="label">${i18n.home.outputLabel}</div>
+    <div class="output" id="outputBox">${i18n.home.outputReady}</div>
   </main>
   <div class="toast" id="toastBox"></div>`;
 
@@ -110,6 +113,8 @@ export function renderHomePage(): string {
     const out = document.getElementById("outputBox");
     const btn = document.getElementById("demoBtn");
     const toast = document.getElementById("toastBox");
+    const locale = ${JSON.stringify(locale)};
+    const i18n = ${JSON.stringify(i18n)};
     const STORAGE_KEY = "turnstile-aas-home-pending";
 
     function showToast(message) {
@@ -162,10 +167,10 @@ export function renderHomePage(): string {
 
           if (data.status === "verified") {
             removePendingByPollId(item.poll_session_id);
-            showToast("验证已完成，欢迎回来。" + (reason ? "（" + reason + "）" : ""));
+            showToast(i18n.home.toastVerified + (reason ? " (" + reason + ")" : ""));
           } else if (data.status === "expired") {
             removePendingByPollId(item.poll_session_id);
-            showToast("演示会话已过期，请重新发起。" );
+            showToast(i18n.home.toastExpired);
           }
         } catch {
           // keep quiet for transient network issues
@@ -175,22 +180,22 @@ export function renderHomePage(): string {
 
     async function runDemo() {
       btn.disabled = true;
-      out.textContent = "正在创建会话...";
+      out.textContent = i18n.home.creatingSession;
       try {
         const timeoutSeconds = 120;
-        const expectedExpireAt = new Date(Date.now() + timeoutSeconds * 1000).toLocaleString("zh-CN", { hour12: false });
+        const expectedExpireAt = new Date(Date.now() + timeoutSeconds * 1000).toLocaleString(locale === "zh-cn" ? "zh-CN" : "en-US", { hour12: false });
 
         const payload = {
           client_id: "frontpage-demo",
           timeout_seconds: timeoutSeconds,
           branding: {
             color: "#1C5FAA",
-            title: "首页演示验证",
-            prompt: "<p>请完成验证后返回首页。</p><p><b>动态过期时间（示例）: " + expectedExpireAt + "</b></p>",
-            button_text: "立即验证",
-            success_title: "验证成功",
-            success_message: "页面即将返回",
-            back_text: "返回首页"
+            title: i18n.home.demoBrandingTitle,
+            prompt: i18n.home.demoPromptPrefixHtml + "<p><b>" + i18n.home.demoPromptExpireLabel + ": " + expectedExpireAt + "</b></p>",
+            button_text: i18n.home.demoButtonText,
+            success_title: i18n.home.demoSuccessTitle,
+            success_message: i18n.home.demoSuccessMessage,
+            back_text: i18n.home.demoBackText
           }
         };
 
@@ -202,7 +207,7 @@ export function renderHomePage(): string {
 
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) {
-          out.textContent = "演示失败: " + JSON.stringify(data, null, 2);
+          out.textContent = i18n.home.demoFailed + JSON.stringify(data, null, 2);
           btn.disabled = false;
           return;
         }
@@ -219,31 +224,31 @@ export function renderHomePage(): string {
 
         const target = typeof data.turnstile_public_url === "string" ? data.turnstile_public_url : "";
         if (!target) {
-          showToast("未返回 public_url，请检查后端响应。");
+          showToast(i18n.home.missingPublicUrl);
           btn.disabled = false;
           return;
         }
 
-        // Open in a regular _blank tab (not popup window).
-        const opened = window.open(target, "_blank");
+        const withLang = target + (target.includes("?") ? "&" : "?") + "lang=" + encodeURIComponent(locale);
+        const opened = window.open(withLang, "_blank");
         if (!opened) {
-          window.location.href = target;
+          window.location.href = withLang;
           return;
         }
-        showToast("已在新标签页打开验证页面。完成后回到此页会自动提示结果。");
+        showToast(i18n.home.openedInNewTab);
       } catch (e) {
-        out.textContent = "网络异常: " + (e && e.message ? e.message : String(e));
+        out.textContent = i18n.home.networkError + (e && e.message ? e.message : String(e));
       }
       btn.disabled = false;
     }
 
     window.addEventListener("focus", () => {
-      checkPendingStatuses("已返回");
+      checkPendingStatuses(i18n.home.reasonReturned);
     });
 
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) {
-        checkPendingStatuses("已返回");
+        checkPendingStatuses(i18n.home.reasonReturned);
       }
     });
 
@@ -251,18 +256,19 @@ export function renderHomePage(): string {
       if (event.origin !== window.location.origin) return;
       const data = event.data || {};
       if (data && data.source === "turnstile-aas" && data.event === "verified") {
-        checkPendingStatuses("验证成功");
+        checkPendingStatuses(i18n.home.reasonVerified);
       }
     });
 
-    checkPendingStatuses("状态同步");
+    checkPendingStatuses(i18n.home.statusSync);
     btn.addEventListener("click", runDemo);
   `;
 
   return renderHtmlDocument({
-    pageTitle: "Turnstile AaS Home",
+    pageTitle: i18n.home.pageTitle,
     style,
     body,
-    script
+    script,
+    htmlLang: locale === "zh-cn" ? "zh-CN" : "en"
   });
 }

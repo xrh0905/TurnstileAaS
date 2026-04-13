@@ -1,5 +1,6 @@
 import { BrandingConfig } from "../types";
 import { escapeHtml } from "../utils";
+import { getI18n } from "./i18n";
 import { renderHtmlDocument, resolveBrandingBasics } from "./page-shell";
 
 export function renderStatePage(args: {
@@ -9,7 +10,11 @@ export function renderStatePage(args: {
   accentColor?: string;
   actionText?: string;
   autoReturnSeconds?: number;
+  icon?: "success" | "expired" | "invalid" | "info";
+  locale?: "zh-cn" | "en";
 }): string {
+  const locale = args.locale ?? "en";
+  const i18n = getI18n(locale);
   const basics = resolveBrandingBasics(args.branding);
   const color = args.accentColor ?? basics.color;
 
@@ -42,6 +47,19 @@ export function renderStatePage(args: {
       padding: 28px;
       animation: rise 360ms ease-out;
       text-align: center;
+    }
+    .icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 12px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      font-size: 32px;
+      font-weight: 700;
+      color: #fff;
+      background: var(--brand);
+      box-shadow: 0 10px 28px color-mix(in srgb, var(--brand) 28%, transparent);
     }
     .brand {
       display: inline-block;
@@ -86,10 +104,11 @@ export function renderStatePage(args: {
 
   const body = `
   <main class="card">
+    <div class="icon" aria-hidden="true">${args.icon === "success" ? "✓" : args.icon === "expired" ? "!" : args.icon === "invalid" ? "×" : "i"}</div>
     <span class="brand">${escapeHtml(basics.productName)}</span>
     <h1>${escapeHtml(args.title)}</h1>
     <p>${escapeHtml(args.message)}</p>
-    <button id="backBtn">${escapeHtml(args.actionText ?? "Back")}</button>
+    <button id="backBtn">${escapeHtml(args.actionText ?? i18n.state.back)}</button>
     <div class="meta" id="metaText"></div>
   </main>`;
 
@@ -107,10 +126,14 @@ export function renderStatePage(args: {
 
     document.getElementById("backBtn")?.addEventListener("click", backOrExit);
 
+    const locale = ${JSON.stringify(locale)};
+
     if (autoReturnSeconds > 0) {
       let left = autoReturnSeconds;
       if (metaText) {
-        metaText.textContent = "即将自动返回（" + left + "s）";
+        metaText.textContent = locale === "zh-cn"
+          ? ${JSON.stringify(i18n.state.autoReturning)} + "（" + left + "s）"
+          : ${JSON.stringify(i18n.state.autoReturning)} + " in " + left + "s";
       }
       const timer = setInterval(() => {
         left -= 1;
@@ -120,7 +143,9 @@ export function renderStatePage(args: {
           return;
         }
         if (metaText) {
-          metaText.textContent = "即将自动返回（" + left + "s）";
+          metaText.textContent = locale === "zh-cn"
+            ? ${JSON.stringify(i18n.state.autoReturning)} + "（" + left + "s）"
+            : ${JSON.stringify(i18n.state.autoReturning)} + " in " + left + "s";
         }
       }, 1000);
     }
@@ -131,6 +156,7 @@ export function renderStatePage(args: {
     favicon: args.branding.favicon,
     style,
     body,
-    script
+    script,
+    htmlLang: locale === "zh-cn" ? "zh-CN" : "en"
   });
 }

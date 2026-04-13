@@ -2,6 +2,7 @@ import { SessionsDurableObject } from "./durable/session-do";
 import type { Env } from "./types";
 import { json } from "./utils";
 import { HOMEPAGE_GITHUB_URL, renderHomePage } from "./web/home-page";
+import { getI18n, resolveLocaleFromRequest } from "./web/i18n";
 import { renderStatePage, renderTurnstilePage } from "./web/public-page";
 
 const TURNSTILE_TEST_SITE_KEY = "1x00000000000000000000AA";
@@ -43,12 +44,14 @@ function toPublicBaseUrl(env: Env, request: Request): string {
 export default {
   async fetch(request, env): Promise<Response> {
     const url = new URL(request.url);
+    const locale = resolveLocaleFromRequest(request);
+    const i18n = getI18n(locale);
 
     if (request.method === "GET" && url.pathname === "/") {
       if (disableHomepage(env)) {
         return Response.redirect(HOMEPAGE_GITHUB_URL, 302);
       }
-      return new Response(renderHomePage(), {
+      return new Response(renderHomePage(locale), {
         status: 200,
         headers: {
           "content-type": "text/html; charset=utf-8",
@@ -118,10 +121,12 @@ export default {
       if (doResponse.status === 404) {
         const html = renderStatePage({
           branding: {},
-          title: "Invalid Session",
-          message: "This verification session is invalid or no longer available.",
+          title: i18n.state.invalidTitle,
+          message: i18n.state.invalidMessage,
           accentColor: "#E4572E",
-          actionText: "Back"
+          actionText: i18n.state.back,
+          icon: "invalid",
+          locale
         });
         return new Response(html, {
           status: 404,
@@ -142,23 +147,26 @@ export default {
       }>();
 
       if (data.status !== "pending" && data.status !== "failed") {
-        const map: Record<string, { title: string; message: string; color: string }> = {
+        const map: Record<string, { title: string; message: string; color: string; icon: "success" | "expired" | "info" }> = {
           verified: {
-            title: "Already Verified",
-            message: "This session has already been verified.",
-            color: "#14A44D"
+            title: i18n.state.verifiedTitle,
+            message: i18n.state.verifiedMessage,
+            color: "#14A44D",
+            icon: "success"
           },
           expired: {
-            title: "Session Expired",
-            message: "This session has expired. Please start a new verification request.",
-            color: "#E0A100"
-          },
+            title: i18n.state.expiredTitle,
+            message: i18n.state.expiredMessage,
+            color: "#E0A100",
+            icon: "expired"
+          }
         };
 
         const state = map[String(data.status)] || {
-          title: "Session Unavailable",
-          message: "This session is not available for verification.",
-          color: "#5B6B8A"
+          title: i18n.state.unavailableTitle,
+          message: i18n.state.unavailableMessage,
+          color: "#5B6B8A",
+          icon: "info" as const
         };
 
         const html = renderStatePage({
@@ -166,8 +174,10 @@ export default {
           title: state.title,
           message: state.message,
           accentColor: state.color,
-          actionText: "Back",
-          autoReturnSeconds: data.status === "verified" ? 3 : 0
+          actionText: i18n.state.back,
+          autoReturnSeconds: data.status === "verified" ? 3 : 0,
+          icon: state.icon,
+          locale
         });
         return new Response(html, {
           status: 409,
@@ -193,7 +203,8 @@ export default {
         browserSessionId,
         verifyEndpoint: "/api/v1/turnstile/:id/verify",
         branding: data.branding,
-        expiresAt: data.expires_at
+        expiresAt: data.expires_at,
+        locale
       });
 
       return new Response(html, {
