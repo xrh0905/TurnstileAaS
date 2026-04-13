@@ -140,7 +140,7 @@ export default {
         branding: Record<string, string | undefined>;
       }>();
 
-      if (data.status !== "pending") {
+      if (data.status !== "pending" && data.status !== "failed") {
         const map: Record<string, { title: string; message: string; color: string }> = {
           verified: {
             title: "Already Verified",
@@ -152,11 +152,6 @@ export default {
             message: "This session has expired. Please start a new verification request.",
             color: "#E0A100"
           },
-          failed: {
-            title: "Verification Failed",
-            message: "This session is no longer valid for verification.",
-            color: "#E4572E"
-          }
         };
 
         const state = map[String(data.status)] || {

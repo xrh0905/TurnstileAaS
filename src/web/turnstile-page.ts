@@ -11,10 +11,10 @@ export function renderTurnstilePage(args: {
   const basics = resolveBrandingBasics(args.branding);
   const successColor = args.branding.success_color ?? basics.color;
   const promptHtml = args.branding.prompt ?? escapeHtml("Please complete verification to continue.");
-  const buttonText = escapeHtml(args.branding.button_text ?? "Verify");
-  const successTitle = escapeHtml(args.branding.success_title ?? "Verified");
-  const successMessage = escapeHtml(args.branding.success_message ?? "Confirmation complete");
-  const backText = escapeHtml(args.branding.back_text ?? "Back");
+  const buttonText = escapeHtml(args.branding.button_text ?? "验证");
+  const successTitle = escapeHtml(args.branding.success_title ?? "验证成功");
+  const successMessage = escapeHtml(args.branding.success_message ?? "验证已完成");
+  const backText = escapeHtml(args.branding.back_text ?? "返回");
   const backDelay = typeof args.branding.back_delay_seconds === "number" ? args.branding.back_delay_seconds : 3;
 
   const style = `
@@ -229,12 +229,12 @@ export function renderTurnstilePage(args: {
     verifyBtn.addEventListener("click", async () => {
       const token = window.turnstile?.getResponse?.();
       if (!token) {
-        statusText.textContent = "Please complete the Turnstile challenge first.";
+        statusText.textContent = "请先完成 Turnstile 挑战。";
         return;
       }
 
       verifyBtn.disabled = true;
-      statusText.textContent = "Verifying...";
+      statusText.textContent = "验证中...";
 
       try {
         const response = await fetch(verifyEndpoint.replace(":id", browserSessionId), {
@@ -245,14 +245,26 @@ export function renderTurnstilePage(args: {
 
         if (!response.ok) {
           const failed = await response.json().catch(() => ({}));
-          statusText.textContent = failed.error || "Verification failed.";
+          statusText.textContent = failed.error || "验证未通过，请刷新后重试。";
           verifyBtn.disabled = false;
           return;
         }
 
+        try {
+          if (window.opener && typeof window.opener.postMessage === "function") {
+            window.opener.postMessage({
+              source: "turnstile-aas",
+              event: "verified",
+              browserSessionId
+            }, window.location.origin);
+          }
+        } catch {
+          // Cross-window messaging failures are non-blocking.
+        }
+
         showSuccessFullPage();
       } catch {
-        statusText.textContent = "Network error. Please retry.";
+        statusText.textContent = "网络异常，请刷新后重试。";
         verifyBtn.disabled = false;
       }
     });

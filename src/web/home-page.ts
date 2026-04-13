@@ -1,6 +1,6 @@
 import { renderHtmlDocument } from "./page-shell";
 
-export const HOMEPAGE_GITHUB_URL = "https://github.com";
+export const HOMEPAGE_GITHUB_URL = "https://github.com/xrh0905/TurnstileAaS";
 
 export function renderHomePage(): string {
   const style = `
@@ -60,6 +60,28 @@ export function renderHomePage(): string {
       word-break: break-word;
       min-height: 80px;
     }
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      max-width: min(440px, calc(100vw - 40px));
+      background: #10213ecc;
+      color: #fff;
+      border: 1px solid #2f4f83;
+      border-radius: 12px;
+      padding: 12px 14px;
+      box-shadow: 0 18px 40px rgba(12, 24, 46, 0.28);
+      opacity: 0;
+      transform: translateY(10px);
+      pointer-events: none;
+      transition: opacity 200ms ease, transform 200ms ease;
+      z-index: 30;
+      white-space: pre-wrap;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
     .label {
       margin-top: 12px;
       color: #4d5f86;
@@ -73,32 +95,99 @@ export function renderHomePage(): string {
 
   const body = `
   <main class="card">
-    <h1>Turnstile Verification Gateway</h1>
-    <p>This homepage provides a quick live demo that creates a verification session with client id <b>frontpage-demo</b>.</p>
+    <h1>Turnstile 验证网关</h1>
+    <p>点击下方按钮会创建演示会话（<b>frontpage-demo</b>），并在新标签页直接打开 public_url。</p>
     <div class="actions">
-      <button id="demoBtn">Run Quick Demo</button>
+      <button id="demoBtn">运行演示</button>
       <a class="btn secondary" href="${HOMEPAGE_GITHUB_URL}" target="_blank" rel="noreferrer">GitHub</a>
     </div>
-    <div class="label">Demo Output</div>
-    <div class="output" id="outputBox">Ready.</div>
-  </main>`;
+    <div class="label">演示输出</div>
+    <div class="output" id="outputBox">就绪。</div>
+  </main>
+  <div class="toast" id="toastBox"></div>`;
 
   const script = `
     const out = document.getElementById("outputBox");
     const btn = document.getElementById("demoBtn");
+    const toast = document.getElementById("toastBox");
+    const STORAGE_KEY = "turnstile-aas-home-pending";
+
+    function showToast(message) {
+      if (!toast) return;
+      toast.textContent = message;
+      toast.classList.add("show");
+      setTimeout(() => {
+        toast.classList.remove("show");
+      }, 2600);
+    }
+
+    function readPending() {
+      try {
+        const raw = sessionStorage.getItem(STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function writePending(list) {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(-8)));
+    }
+
+    function addPending(item) {
+      const list = readPending();
+      list.push(item);
+      writePending(list);
+    }
+
+    function removePendingByPollId(pollId) {
+      const list = readPending().filter((v) => v && v.poll_session_id !== pollId);
+      writePending(list);
+    }
+
+    async function checkPendingStatuses(reason) {
+      const list = readPending();
+      if (!list.length) return;
+
+      for (const item of list) {
+        if (!item || !item.poll_session_id || !item.client_id) continue;
+        try {
+          const resp = await fetch(
+            "/api/v1/sessions/" + encodeURIComponent(item.poll_session_id) + "/status",
+            { headers: { "x-client-id": item.client_id } }
+          );
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok) continue;
+
+          if (data.status === "verified") {
+            removePendingByPollId(item.poll_session_id);
+            showToast("验证已完成，欢迎回来。" + (reason ? "（" + reason + "）" : ""));
+          } else if (data.status === "expired") {
+            removePendingByPollId(item.poll_session_id);
+            showToast("演示会话已过期，请重新发起。" );
+          }
+        } catch {
+          // keep quiet for transient network issues
+        }
+      }
+    }
 
     async function runDemo() {
       btn.disabled = true;
-      out.textContent = "Creating session...";
+      out.textContent = "正在创建会话...";
       try {
         const payload = {
           client_id: "frontpage-demo",
           timeout_seconds: 120,
           branding: {
             color: "#1C5FAA",
-            title: "Frontpage Demo",
-            prompt: "Please verify to continue",
-            button_text: "Verify"
+            title: "首页演示验证",
+            prompt: "请完成验证后返回首页。",
+            button_text: "立即验证",
+            success_title: "验证成功",
+            success_message: "页面即将返回",
+            back_text: "返回首页"
           }
         };
 
@@ -110,18 +199,60 @@ export function renderHomePage(): string {
 
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) {
-          out.textContent = "Demo failed: " + JSON.stringify(data, null, 2);
+          out.textContent = "演示失败: " + JSON.stringify(data, null, 2);
           btn.disabled = false;
           return;
         }
 
         out.textContent = JSON.stringify(data, null, 2);
+        if (data.poll_session_id && data.browser_session_id) {
+          addPending({
+            poll_session_id: data.poll_session_id,
+            browser_session_id: data.browser_session_id,
+            client_id: "frontpage-demo",
+            created_at: Date.now()
+          });
+        }
+
+        const target = typeof data.turnstile_public_url === "string" ? data.turnstile_public_url : "";
+        if (!target) {
+          showToast("未返回 public_url，请检查后端响应。");
+          btn.disabled = false;
+          return;
+        }
+
+        // Open in a regular _blank tab (not popup window).
+        const opened = window.open(target, "_blank");
+        if (!opened) {
+          window.location.href = target;
+          return;
+        }
+        showToast("已在新标签页打开验证页面。完成后回到此页会自动提示结果。");
       } catch (e) {
-        out.textContent = "Network error: " + (e && e.message ? e.message : String(e));
+        out.textContent = "网络异常: " + (e && e.message ? e.message : String(e));
       }
       btn.disabled = false;
     }
 
+    window.addEventListener("focus", () => {
+      checkPendingStatuses("已返回");
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        checkPendingStatuses("已返回");
+      }
+    });
+
+    window.addEventListener("message", (event) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data || {};
+      if (data && data.source === "turnstile-aas" && data.event === "verified") {
+        checkPendingStatuses("验证成功");
+      }
+    });
+
+    checkPendingStatuses("状态同步");
     btn.addEventListener("click", runDemo);
   `;
 

@@ -187,8 +187,6 @@ export class SessionsDurableObject {
 
     const verifyResult = await this.verifyTurnstile(turnstileToken, request.headers.get("cf-connecting-ip"));
     if (!verifyResult.success) {
-      session.status = "failed";
-      await this.putSession(session);
       return json({ error: "turnstile_verification_failed", details: verifyResult }, { status: 400 });
     }
 
@@ -265,6 +263,11 @@ export class SessionsDurableObject {
   }
 
   private updateStatusForCurrentTime(session: SessionRecord): void {
+    // Backward compatibility: legacy failed sessions should be retryable.
+    if (session.status === "failed") {
+      session.status = Date.now() >= session.expiresAt ? "expired" : "pending";
+    }
+
     // Verified sessions must never transition at timeout; they live until cleanupAt.
     if (session.status === "pending" && Date.now() >= session.expiresAt) {
       session.status = "expired";
