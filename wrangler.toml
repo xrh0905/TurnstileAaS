@@ -23,18 +23,3 @@ CLIENT_SERVER_TOKEN_MAP = "{}"
 # Set secret values with:
 # wrangler secret put TURNSTILE_SITE_KEY
 # wrangler secret put TURNSTILE_SECRET_KEY
-
-[env.production]
-# Optional custom-domain route example:
-# [[env.production.routes]]
-# pattern = "verify.example.com"
-# custom_domain = true
-
-[env.production.vars]
-BASE_PUBLIC_URL = "https://verify.example.com"
-USE_TURNSTILE_TEST_KEYS = "false"
-DEFAULT_TIMEOUT_SECONDS = "300"
-MIN_TIMEOUT_SECONDS = "60"
-MAX_TIMEOUT_SECONDS = "1800"
-CLEANUP_DELAY_SECONDS = "600"
-CLIENT_SERVER_TOKEN_MAP = "{}"

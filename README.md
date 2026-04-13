@@ -157,15 +157,15 @@ Use custom domain/base URL:
    - `npx wrangler login`
    - `npx wrangler whoami`
 2. Set production secrets:
-   - `npx wrangler secret put TURNSTILE_SITE_KEY --env production`
-   - `npx wrangler secret put TURNSTILE_SECRET_KEY --env production`
+   - `npx wrangler secret put TURNSTILE_SITE_KEY`
+   - `npx wrangler secret put TURNSTILE_SECRET_KEY`
 3. Update `wrangler.toml` production values:
-   - set `[env.production.vars].BASE_PUBLIC_URL` to your HTTPS custom domain.
+   - set `[env.vars].BASE_PUBLIC_URL` to your HTTPS custom domain.
    - keep `USE_TURNSTILE_TEST_KEYS = "false"` in production.
 4. (Optional) Enable custom domain route:
-   - uncomment `[[env.production.routes]]` and set your host pattern.
+   - uncomment `[[env.routes]]` and set your host pattern.
 5. Deploy:
-   - `npm run deploy:prod`
+   - `npm run deploy`
 
 ## CLIENT_SERVER_TOKEN_MAP
 JSON object where each client can require optional server token auth.
