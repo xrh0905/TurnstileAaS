@@ -1,12 +1,17 @@
 import { SessionsDurableObject } from "./durable/session-do";
 import type { Env } from "./types";
 import { json } from "./utils";
-import { renderTurnstilePage } from "./web/public-page";
+import { HOMEPAGE_GITHUB_URL, renderHomePage } from "./web/home-page";
+import { renderStatePage, renderTurnstilePage } from "./web/public-page";
 
 const TURNSTILE_TEST_SITE_KEY = "1x00000000000000000000AA";
 
 function useTurnstileTestKeys(env: Env): boolean {
   return (env.USE_TURNSTILE_TEST_KEYS || "").trim().toLowerCase() === "true";
+}
+
+function disableHomepage(env: Env): boolean {
+  return (env.DISABLE_HOMEPAGE || "").trim().toLowerCase() === "true";
 }
 
 async function proxyToDo(env: Env, method: string, path: string, body?: unknown): Promise<Response> {
@@ -38,6 +43,19 @@ function toPublicBaseUrl(env: Env, request: Request): string {
 export default {
   async fetch(request, env): Promise<Response> {
     const url = new URL(request.url);
+
+    if (request.method === "GET" && url.pathname === "/") {
+      if (disableHomepage(env)) {
+        return Response.redirect(HOMEPAGE_GITHUB_URL, 302);
+      }
+      return new Response(renderHomePage(), {
+        status: 200,
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          "cache-control": "no-store"
+        }
+      });
+    }
 
     if (request.method === "POST" && url.pathname === "/api/v1/sessions") {
       const payload = await request.json().catch(() => null);
@@ -98,7 +116,20 @@ export default {
       const browserSessionId = url.pathname.slice("/v/".length);
       const doResponse = await proxyToDo(env, "GET", `/internal/browser/${browserSessionId}`);
       if (doResponse.status === 404) {
-        return doResponse;
+        const html = renderStatePage({
+          branding: {},
+          title: "Invalid Session",
+          message: "This verification session is invalid or no longer available.",
+          accentColor: "#E4572E",
+          actionText: "Back"
+        });
+        return new Response(html, {
+          status: 404,
+          headers: {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "no-store"
+          }
+        });
       }
       if (!doResponse.ok) {
         return doResponse;
@@ -110,7 +141,44 @@ export default {
       }>();
 
       if (data.status !== "pending") {
-        return json({ error: "session_not_pending", status: data.status }, { status: 409 });
+        const map: Record<string, { title: string; message: string; color: string }> = {
+          verified: {
+            title: "Already Verified",
+            message: "This session has already been verified.",
+            color: "#14A44D"
+          },
+          expired: {
+            title: "Session Expired",
+            message: "This session has expired. Please start a new verification request.",
+            color: "#E0A100"
+          },
+          failed: {
+            title: "Verification Failed",
+            message: "This session is no longer valid for verification.",
+            color: "#E4572E"
+          }
+        };
+
+        const state = map[String(data.status)] || {
+          title: "Session Unavailable",
+          message: "This session is not available for verification.",
+          color: "#5B6B8A"
+        };
+
+        const html = renderStatePage({
+          branding: (data.branding || {}) as any,
+          title: state.title,
+          message: state.message,
+          accentColor: state.color,
+          actionText: "Back"
+        });
+        return new Response(html, {
+          status: 409,
+          headers: {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "no-store"
+          }
+        });
       }
 
       const siteKey = useTurnstileTestKeys(env)

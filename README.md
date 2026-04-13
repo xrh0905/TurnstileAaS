@@ -6,6 +6,8 @@ Cloudflare-native session verification service using Workers, Durable Objects, a
 - Create session with required `client_id`, optional `server_token` policy.
 - Returns two IDs: `poll_session_id` and `browser_session_id`.
 - Public branded Turnstile page by browser session ID.
+- Friendly state pages for `invalid session`, `already verified`, and `expired session`.
+- Friendly homepage (`/`) with GitHub link and quick backend demo (`client_id=frontpage-demo`).
 - Poll verification status by poll session ID.
 - Timeout marks session as `expired`.
 - Auto cleanup at `timeout + 10 minutes`.
@@ -87,6 +89,7 @@ Example request:
    wrangler secret put TURNSTILE_SECRET_KEY
 3. Optional vars in `wrangler.toml`:
    - `BASE_PUBLIC_URL` (default is `http://localhost:8787` for local)
+   - `DISABLE_HOMEPAGE` (`true` will disable home page and redirect `/` to GitHub)
    - `USE_TURNSTILE_TEST_KEYS` (`true` to explicitly use Cloudflare test keys)
    - `CLIENT_SERVER_TOKEN_MAP`
 4. Run locally:
@@ -156,11 +159,12 @@ Use custom domain/base URL:
 1. Login and pick account:
    - `npx wrangler login`
    - `npx wrangler whoami`
-2. Set production secrets:
+2. Set deploy secrets:
    - `npx wrangler secret put TURNSTILE_SITE_KEY`
    - `npx wrangler secret put TURNSTILE_SECRET_KEY`
-3. Update `wrangler.toml` production values:
-   - set `[env.vars].BASE_PUBLIC_URL` to your HTTPS custom domain.
+3. Update `wrangler.toml` values:
+   - set `[vars].BASE_PUBLIC_URL` to your HTTPS custom domain.
+   - set `[vars].HOMEPAGE_REDIRECT_URL` to your GitHub/org page.
    - keep `USE_TURNSTILE_TEST_KEYS = "false"` in production.
 4. (Optional) Enable custom domain route:
    - uncomment `[[env.routes]]` and set your host pattern.

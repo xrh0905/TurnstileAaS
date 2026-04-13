@@ -25,6 +25,7 @@ new_sqlite_classes = ["SessionsDurableObject"]
 
 [vars]
 BASE_PUBLIC_URL = "http://localhost:8787"
+DISABLE_HOMEPAGE = "false"
 USE_TURNSTILE_TEST_KEYS = "false"
 DEFAULT_TIMEOUT_SECONDS = "300"
 MIN_TIMEOUT_SECONDS = "30"

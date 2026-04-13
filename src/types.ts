@@ -1,5 +1,6 @@
 export interface Env {
   SESSIONS_DO: DurableObjectNamespace;
+  DISABLE_HOMEPAGE?: string;
   TURNSTILE_SITE_KEY: string;
   TURNSTILE_SECRET_KEY: string;
   USE_TURNSTILE_TEST_KEYS?: string;
