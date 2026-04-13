@@ -138,6 +138,7 @@ export default {
       const data = await doResponse.json<{
         status: string;
         branding: Record<string, string | undefined>;
+        expires_at: string;
       }>();
 
       if (data.status !== "pending" && data.status !== "failed") {
@@ -165,7 +166,8 @@ export default {
           title: state.title,
           message: state.message,
           accentColor: state.color,
-          actionText: "Back"
+          actionText: "Back",
+          autoReturnSeconds: data.status === "verified" ? 3 : 0
         });
         return new Response(html, {
           status: 409,
@@ -190,7 +192,8 @@ export default {
         siteKey,
         browserSessionId,
         verifyEndpoint: "/api/v1/turnstile/:id/verify",
-        branding: data.branding
+        branding: data.branding,
+        expiresAt: data.expires_at
       });
 
       return new Response(html, {

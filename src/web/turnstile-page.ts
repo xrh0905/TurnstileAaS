@@ -7,6 +7,7 @@ export function renderTurnstilePage(args: {
   browserSessionId: string;
   verifyEndpoint: string;
   branding: BrandingConfig;
+  expiresAt: string;
 }): string {
   const basics = resolveBrandingBasics(args.branding);
   const successColor = args.branding.success_color ?? basics.color;
@@ -88,6 +89,12 @@ export function renderTurnstilePage(args: {
     button:hover { transform: translateY(-1px); }
     button:disabled { opacity: 0.6; cursor: wait; }
     .status { font-size: 0.9rem; min-height: 1.2rem; }
+    .expire-meta {
+      margin-top: 10px;
+      font-size: 0.88rem;
+      color: #4a5e84;
+      min-height: 1.1rem;
+    }
 
     .success-screen {
       position: fixed;
@@ -159,6 +166,7 @@ export function renderTurnstilePage(args: {
       <button id="verifyBtn">${buttonText}</button>
       <span class="status" id="statusText"></span>
     </div>
+    <div class="expire-meta" id="expireMeta"></div>
   </main>
 
   <section class="success-screen" id="successScreen" aria-live="polite">
@@ -180,14 +188,17 @@ export function renderTurnstilePage(args: {
     const browserSessionId = ${JSON.stringify(args.browserSessionId)};
     const verifyEndpoint = ${JSON.stringify(args.verifyEndpoint)};
     const backDelaySeconds = ${JSON.stringify(backDelay)};
+    const expiresAt = ${JSON.stringify(args.expiresAt)};
 
     const verifyBtn = document.getElementById("verifyBtn");
     const statusText = document.getElementById("statusText");
     const successScreen = document.getElementById("successScreen");
     const backBtn = document.getElementById("backBtn");
     const backMeta = document.getElementById("backMeta");
+    const expireMeta = document.getElementById("expireMeta");
 
     let backTimer = null;
+    let expireTimer = null;
 
     function backOrExit() {
       if (window.history.length > 1) {
@@ -203,6 +214,10 @@ export function renderTurnstilePage(args: {
     }
 
     function showSuccessFullPage() {
+      if (expireTimer) {
+        clearInterval(expireTimer);
+        expireTimer = null;
+      }
       successScreen.classList.add("visible");
       if (backDelaySeconds <= 0) {
         backMeta.textContent = "";
@@ -221,10 +236,48 @@ export function renderTurnstilePage(args: {
       }, 1000);
     }
 
+    function startExpireWatcher() {
+      const expireTs = Date.parse(expiresAt);
+      if (!Number.isFinite(expireTs)) {
+        if (expireMeta) {
+          expireMeta.textContent = "过期时间解析失败";
+        }
+        return;
+      }
+
+      const expireText = new Date(expireTs).toLocaleString("zh-CN", { hour12: false });
+      if (expireMeta) {
+        expireMeta.textContent = "会话过期时间：" + expireText;
+      }
+
+      expireTimer = setInterval(() => {
+        if (successScreen.classList.contains("visible")) {
+          clearInterval(expireTimer);
+          expireTimer = null;
+          return;
+        }
+
+        const leftMs = expireTs - Date.now();
+        if (leftMs <= 0) {
+          clearInterval(expireTimer);
+          expireTimer = null;
+          window.location.href = window.location.pathname;
+          return;
+        }
+
+        if (expireMeta) {
+          const leftSec = Math.max(1, Math.floor(leftMs / 1000));
+          expireMeta.textContent = "会话过期时间：" + expireText + "（剩余 " + leftSec + "s）";
+        }
+      }, 1000);
+    }
+
     backBtn.addEventListener("click", () => {
       if (backTimer) clearInterval(backTimer);
       backOrExit();
     });
+
+    startExpireWatcher();
 
     verifyBtn.addEventListener("click", async () => {
       const token = window.turnstile?.getResponse?.();

@@ -8,6 +8,7 @@ export function renderStatePage(args: {
   message: string;
   accentColor?: string;
   actionText?: string;
+  autoReturnSeconds?: number;
 }): string {
   const basics = resolveBrandingBasics(args.branding);
   const color = args.accentColor ?? basics.color;
@@ -71,6 +72,12 @@ export function renderStatePage(args: {
       padding: 11px 16px;
       cursor: pointer;
     }
+    .meta {
+      margin-top: 10px;
+      font-size: 0.9rem;
+      color: #5a6c90;
+      min-height: 1.1rem;
+    }
     @keyframes rise {
       from { transform: translateY(10px); opacity: 0; }
       to { transform: translateY(0); opacity: 1; }
@@ -83,16 +90,40 @@ export function renderStatePage(args: {
     <h1>${escapeHtml(args.title)}</h1>
     <p>${escapeHtml(args.message)}</p>
     <button id="backBtn">${escapeHtml(args.actionText ?? "Back")}</button>
+    <div class="meta" id="metaText"></div>
   </main>`;
 
   const script = `
-    document.getElementById("backBtn")?.addEventListener("click", () => {
+    const autoReturnSeconds = ${JSON.stringify(typeof args.autoReturnSeconds === "number" ? args.autoReturnSeconds : 0)};
+    const metaText = document.getElementById("metaText");
+
+    function backOrExit() {
       if (window.history.length > 1) {
         window.history.back();
       } else {
         window.close();
       }
-    });
+    }
+
+    document.getElementById("backBtn")?.addEventListener("click", backOrExit);
+
+    if (autoReturnSeconds > 0) {
+      let left = autoReturnSeconds;
+      if (metaText) {
+        metaText.textContent = "即将自动返回（" + left + "s）";
+      }
+      const timer = setInterval(() => {
+        left -= 1;
+        if (left <= 0) {
+          clearInterval(timer);
+          backOrExit();
+          return;
+        }
+        if (metaText) {
+          metaText.textContent = "即将自动返回（" + left + "s）";
+        }
+      }, 1000);
+    }
   `;
 
   return renderHtmlDocument({

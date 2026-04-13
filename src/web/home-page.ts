@@ -177,13 +177,16 @@ export function renderHomePage(): string {
       btn.disabled = true;
       out.textContent = "正在创建会话...";
       try {
+        const timeoutSeconds = 120;
+        const expectedExpireAt = new Date(Date.now() + timeoutSeconds * 1000).toLocaleString("zh-CN", { hour12: false });
+
         const payload = {
           client_id: "frontpage-demo",
-          timeout_seconds: 120,
+          timeout_seconds: timeoutSeconds,
           branding: {
             color: "#1C5FAA",
             title: "首页演示验证",
-            prompt: "请完成验证后返回首页。",
+            prompt: "<p>请完成验证后返回首页。</p><p><b>动态过期时间（示例）: " + expectedExpireAt + "</b></p>",
             button_text: "立即验证",
             success_title: "验证成功",
             success_message: "页面即将返回",
